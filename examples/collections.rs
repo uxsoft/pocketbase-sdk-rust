@@ -6,7 +6,7 @@ fn main() -> Result<()> {
 
     // admin authentication
     let authenticated_admin_client = Admin::new("http://localhost:8090")
-        .auth_with_password("sreedev@icloud.com", "Sreedev123")?;
+        .auth_with_password("me@uxsoft.cz", "asdasdasdasd")?;
 
     // collections list + Filter
     let collections = authenticated_admin_client

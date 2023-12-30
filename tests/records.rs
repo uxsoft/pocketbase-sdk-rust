@@ -3,6 +3,8 @@ use pocketbase_sdk::client::Client;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 
+mod constants;
+
 #[derive(Clone, Debug, Serialize, Default, Deserialize)]
 pub struct Record {
     pub id: String,
@@ -12,13 +14,14 @@ pub struct Record {
 #[test]
 fn list_records_success() {
     let mockserver = mock_records_server();
-    let client = Client::new(mockserver.base_url().as_str()).auth_with_password(
+    let client = Client::new(constants::POCKETBASE_URL).auth_with_password(
         "users",
-        "sreedev@icloud.com",
-        "Sreedev123",
+        constants::USERNAME,
+        constants::PASSWORD,
     ).unwrap();
 
     let records = client.records("posts").list().per_page(1010).call::<Record>();
+    dbg!(&records);
     assert!(records.is_ok());
 }
 

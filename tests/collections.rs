@@ -2,11 +2,13 @@ use httpmock::prelude::*;
 use pocketbase_sdk::admin::Admin;
 use serde_json::json;
 
+mod constants;
+
 #[test]
 fn collections_list_success() {
     let mockserver_url = mockserver().base_url();
-    let admin_client = Admin::new(mockserver_url.as_str())
-        .auth_with_password("sreedev@icloud.com", "Sreedev123")
+    let admin_client = Admin::new(constants::POCKETBASE_URL)
+        .auth_with_password(constants::USERNAME, constants::PASSWORD)
         .unwrap();
 
     let collections_list = admin_client.collections().list().call();
@@ -14,10 +16,10 @@ fn collections_list_success() {
 }
 
 #[test]
-fn colletion_view_succes() {
+fn collection_view_succes() {
     let mockserver_url = mockserver().base_url();
-    let admin_client = Admin::new(mockserver_url.as_str())
-        .auth_with_password("sreedev@icloud.com", "Sreedev123")
+    let admin_client = Admin::new(constants::POCKETBASE_URL)
+        .auth_with_password(constants::USERNAME, constants::PASSWORD)
         .unwrap();
     let collection = admin_client.collections().view("posts").call();
     assert!(collection.is_ok())

@@ -2,18 +2,18 @@ use httpmock::prelude::*;
 use pocketbase_sdk::admin::Admin;
 use serde_json::json;
 
+mod constants;
+
 #[test]
 pub fn authenticate_admin_success() {
-    let mockserver = mock_admin_login();
-    let client = Admin::new(mockserver.base_url().as_str())
-        .auth_with_password("sreedev@icloud.com", "Sreedev123");
+    let client = Admin::new(constants::POCKETBASE_URL)
+        .auth_with_password(constants::USERNAME, constants::PASSWORD);
     assert!(client.is_ok());
 }
 
 #[test]
 pub fn authenticate_admin_failure() {
-    let mockserver = mock_admin_login();
-    let client = Admin::new(mockserver.base_url().as_str())
+    let client = Admin::new(constants::POCKETBASE_URL)
         .auth_with_password("wrongidentity@wrongidentity.com", "wrongpassword");
     assert!(client.is_err());
 }

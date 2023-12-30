@@ -48,7 +48,7 @@ pub struct CollectionsManager<'a> {
     pub client: &'a Client<Auth>,
 }
 
-/*TODO: Add Auth Options & View Options for View & Auth Types*/
+// TODO: Add Auth Options & View Options for View & Auth Types
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionDetails<'a> {

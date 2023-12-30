@@ -2,25 +2,27 @@ use httpmock::prelude::*;
 use pocketbase_sdk::client::Client;
 use serde_json::json;
 
+mod constants;
+
 #[test]
 pub fn authenticate_record_success() {
     let mockserver = mock_admin_login();
-    let client = Client::new(mockserver.base_url().as_str()).auth_with_password(
+    let client = Client::new(constants::POCKETBASE_URL).auth_with_password(
         "users",
-        "sreedev@icloud.com",
-        "Sreedev123",
+        constants::USERNAME,
+        constants::PASSWORD,
     );
+
+    dbg!(&client);
+
     assert!(client.is_ok());
 }
 
 #[test]
 pub fn authenticate_record_error() {
     let mockserver = mock_admin_login();
-    let client = Client::new(mockserver.base_url().as_str()).auth_with_password(
-        "users",
-        "bingo",
-        "bango",
-    );
+    let client =
+        Client::new(constants::POCKETBASE_URL).auth_with_password("users", "bingo", "bango");
     assert!(client.is_err());
 }
 

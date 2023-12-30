@@ -16,7 +16,7 @@ fn list_records_success() {
     let mockserver = mock_records_server();
     let client = Client::new(constants::POCKETBASE_URL).auth_with_password(
         "users",
-        constants::USERNAME,
+        constants::USER_EMAIL,
         constants::PASSWORD,
     ).unwrap();
 

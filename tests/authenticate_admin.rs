@@ -7,7 +7,7 @@ mod constants;
 #[test]
 pub fn authenticate_admin_success() {
     let client = Admin::new(constants::POCKETBASE_URL)
-        .auth_with_password(constants::USERNAME, constants::PASSWORD);
+        .auth_with_password(constants::USER_EMAIL, constants::PASSWORD);
     assert!(client.is_ok());
 }
 

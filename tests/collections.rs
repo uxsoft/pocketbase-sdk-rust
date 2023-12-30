@@ -8,7 +8,7 @@ mod constants;
 fn collections_list_success() {
     let mockserver_url = mockserver().base_url();
     let admin_client = Admin::new(constants::POCKETBASE_URL)
-        .auth_with_password(constants::USERNAME, constants::PASSWORD)
+        .auth_with_password(constants::USER_EMAIL, constants::PASSWORD)
         .unwrap();
 
     let collections_list = admin_client.collections().list().call();
@@ -19,7 +19,7 @@ fn collections_list_success() {
 fn collection_view_succes() {
     let mockserver_url = mockserver().base_url();
     let admin_client = Admin::new(constants::POCKETBASE_URL)
-        .auth_with_password(constants::USERNAME, constants::PASSWORD)
+        .auth_with_password(constants::USER_EMAIL, constants::PASSWORD)
         .unwrap();
     let collection = admin_client.collections().view("posts").call();
     assert!(collection.is_ok())

@@ -9,7 +9,7 @@ pub fn authenticate_record_success() {
     let mockserver = mock_admin_login();
     let client = Client::new(constants::POCKETBASE_URL).auth_with_password(
         "users",
-        constants::USERNAME,
+        constants::USER_EMAIL,
         constants::PASSWORD,
     );
 

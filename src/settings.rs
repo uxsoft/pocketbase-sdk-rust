@@ -5,6 +5,7 @@ use crate::httpc::Httpc;
 use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
+use serde_json::json;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,91 +143,126 @@ pub struct SocialAuth {
 #[derive(Debug, Clone)]
 pub struct GetAllRequestBuilder<'a> {
     pub client: &'a Client<Auth>,
-    pub fields: Option<Vec<String>>,
 }
 
 impl<'a> GetAllRequestBuilder<'a> {
     pub fn call(&self) -> Result<SettingsResponse> {
         let url = format!("{}/api/settings", self.client.base_url);
 
-        let mut build_opts: Vec<(&str, String)> = vec![];
-
-        if let Some(fields) = &self.fields {
-            let fields_json = serde_json::to_string(&fields).unwrap();
-            build_opts.push(("filter", fields_json))
-        }
-
-        match Httpc::get(
-            self.client,
-            &url,
-            Some(
-                build_opts
-                    .iter()
-                    .map(|(a, b)| (*a, b.as_str()))
-                    .collect(),
-            ),
-        ) {
+        match Httpc::get(self.client, &url, None) {
             Ok(result) => {
-
                 let response = result.into_json::<SettingsResponse>()?;
                 Ok(response)
             }
             Err(e) => Err(e),
         }
     }
+}
 
-    pub fn fields(&self, fields: Vec<String>) -> Self {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum S3FileSystem {
+    Storage,
+    Backups,
+}
+
+#[derive(Debug, Clone)]
+pub struct TestS3RequestBuilder<'a> {
+    pub client: &'a Client<Auth>,
+    pub filesystem: S3FileSystem,
+}
+
+impl<'a> TestS3RequestBuilder<'a> {
+    pub fn call(&self) -> bool {
+        let url = format!("{}/api/settings/test/s3", self.client.base_url);
+
+        let body = json!({
+            "filesystem": self.filesystem
+        })
+        .to_string();
+
+        let response = Httpc::post(self.client, &url, body);
+
+        response.is_ok()
+    }
+
+    pub fn filesystem(&self, filesystem: S3FileSystem) -> Self {
         Self {
-            fields: Some(fields),
+            filesystem,
+            ..self.clone()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum EmailTemplateType {
+    Verification,
+    PasswordReset,
+    EmailChange,
+}
+
+#[derive(Debug, Clone)]
+pub struct TestEmailRequestBuilder<'a> {
+    pub client: &'a Client<Auth>,
+    pub email: String,
+    pub template: EmailTemplateType,
+}
+
+impl<'a> TestEmailRequestBuilder<'a> {
+    pub fn call(&self) -> bool {
+        let url = format!("{}/api/settings/test/email", self.client.base_url);
+
+        let body = json!({
+            "email": self.email,
+            "template": self.template
+        })
+        .to_string();
+
+        let response = Httpc::post(self.client, &url, body);
+
+        response.is_ok()
+    }
+
+    pub fn template(&self, template: EmailTemplateType) -> Self {
+        Self {
+            template,
             ..self.clone()
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TestS3RequestBuilder<'a> {
+pub struct GenerateAppleClientSecretRequestBuilder<'a> {
     pub client: &'a Client<Auth>,
-    pub fields: Option<Vec<String>>,
+    pub client_id: String,
+    pub team_id: String,
+    pub key_id: String,
+    pub private_key: String,
+    pub duration: usize,
 }
 
-impl<'a> TestS3RequestBuilder<'a> {
-    pub fn call(&self) -> Result<SettingsResponse> {
-        let url = format!("{}/api/settings", self.client.base_url);
+impl<'a> GenerateAppleClientSecretRequestBuilder<'a> {
+    pub fn call(&self) -> bool {
+        let url = format!(
+            "{}/api/settings/apple/generate-client-secret",
+            self.client.base_url
+        );
 
-        let mut build_opts: Vec<(&str, String)> = vec![];
+        let body = json!({
+            "clientId": self.client_id,
+            "teamId": self.team_id,
+            "keyId": self.key_id,
+            "privateKey": self.private_key,
+            "duration": self.duration,
+        })
+        .to_string();
 
-        if let Some(fields) = &self.fields {
-            let fields_json = serde_json::to_string(&fields).unwrap();
-            build_opts.push(("filter", fields_json))
-        }
+        let response = Httpc::post(self.client, &url, body);
 
-        match Httpc::get(
-            self.client,
-            &url,
-            Some(
-                build_opts
-                    .iter()
-                    .map(|(a, b)| (*a, b.as_str()))
-                    .collect(),
-            ),
-        ) {
-            Ok(result) => {
-
-                let response = result.into_json::<SettingsResponse>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    pub fn fields(&self, fields: Vec<String>) -> Self {
-        Self {
-            fields: Some(fields),
-            ..self.clone()
-        }
+        response.is_ok()
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SettingsManager<'a> {
@@ -237,12 +273,41 @@ impl<'a> SettingsManager<'a> {
     pub fn get_all(&self) -> GetAllRequestBuilder<'a> {
         GetAllRequestBuilder {
             client: self.client,
-            fields: None,
         }
     }
 
     pub fn update(&self, identifier: &'a str) -> () {}
-    pub fn test_s3(&self, identifier: &'a str) -> () {}
-    pub fn test_email(&self, identifier: &'a str) -> () {}
-    pub fn generate_apple_client_secret(&self, identifier: &'a str) -> () {}
+
+    pub fn test_s3(&self) -> TestS3RequestBuilder<'a> {
+        TestS3RequestBuilder {
+            client: self.client,
+            filesystem: S3FileSystem::Storage,
+        }
+    }
+
+    pub fn test_email<S: Into<String>>(&self, to: S) -> TestEmailRequestBuilder<'a> {
+        TestEmailRequestBuilder {
+            client: self.client,
+            email: to.into(),
+            template: EmailTemplateType::Verification,
+        }
+    }
+
+    pub fn generate_apple_client_secret<S: Into<String>>(
+        &self,
+        client_id: S,
+        team_id: S,
+        key_id: S,
+        private_key: S,
+        duration: usize,
+    ) -> GenerateAppleClientSecretRequestBuilder<'a> {
+        GenerateAppleClientSecretRequestBuilder {
+            client: self.client,
+            client_id: client_id.into(),
+            team_id: team_id.into(),
+            key_id: key_id.into(),
+            private_key: private_key.into(),
+            duration,
+        }
+    }
 }

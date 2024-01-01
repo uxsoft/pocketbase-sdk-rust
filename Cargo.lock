@@ -1176,8 +1176,11 @@ name = "pocketbase-sdk"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "bytes",
  "chrono",
  "eventsource-stream",
+ "futures",
+ "pin-project-lite",
  "reqwest",
  "serde",
  "serde_json",
@@ -1539,11 +1542,15 @@ dependencies = [
 name = "test-app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "dioxus",
  "dioxus-web",
  "eventsource-stream",
  "futures",
+ "pocketbase-sdk",
  "reqwest",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

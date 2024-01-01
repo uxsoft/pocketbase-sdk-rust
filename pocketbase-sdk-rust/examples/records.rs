@@ -1,6 +1,6 @@
 use anyhow::Result;
 use pocketbase_sdk::client::Client;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct Product {
@@ -18,8 +18,6 @@ pub struct NewProduct {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-
     /* Authenticate Client */
     let authenticated_client = Client::new("http://localhost:8090")
         .auth_with_password("users", "sreedev@icloud.com", "Sreedev123")

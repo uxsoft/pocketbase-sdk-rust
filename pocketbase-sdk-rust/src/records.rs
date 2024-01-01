@@ -30,7 +30,7 @@ pub struct RecordList<T> {
 }
 
 impl<'a> RecordsListRequestBuilder<'a> {
-    pub async fn call<T: Default + DeserializeOwned>(&self) -> Result<RecordList<T>> {
+    pub async fn call<T: DeserializeOwned>(&self) -> Result<RecordList<T>> {
         let url = format!(
             "{}/api/collections/{}/records",
             self.client.base_url, self.collection_name

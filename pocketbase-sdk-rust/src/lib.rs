@@ -16,9 +16,9 @@ pub mod logs;
 /// Settings Related Operations
 pub mod settings;
 
-/// Realtime Server [Not Available]
-// pub mod rts;
-
-// pub mod spinta;
+/// Realtime Related Operations
+pub mod rts;
 
 mod httpc;
+
+// mod eventstream;

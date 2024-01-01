@@ -3,8 +3,6 @@ use pocketbase_sdk::admin::Admin;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init();
-
     // admin authentication
     let admin = Admin::new("http://localhost:8090")
         .auth_with_password("sreedev@icloud.com", "Sreedev123")

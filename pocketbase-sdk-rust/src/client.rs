@@ -1,5 +1,5 @@
 use crate::{collections::CollectionsManager, httpc::HttpClient};
-use crate::{logs::LogsManager, records::RecordsManager, settings::SettingsManager};
+use crate::{logs::LogsManager, records::RecordsManager, settings::SettingsManager, rts::RealtimeManager};
 use anyhow::Result;
 use serde::Deserialize;
 use serde_json::json;
@@ -55,6 +55,10 @@ impl Client<Auth> {
     pub fn settings(&self) -> SettingsManager {
         SettingsManager { client: self }
     }
+
+    pub fn realtime(&self) -> RealtimeManager {
+        RealtimeManager { client: self }
+    }
 }
 
 impl Client<NoAuth> {
@@ -66,7 +70,7 @@ impl Client<NoAuth> {
         }
     }
 
-    pub async fn  auth_with_password(
+    pub async fn auth_with_password(
         &self,
         collection: &str,
         identifier: &str,
@@ -82,8 +86,11 @@ impl Client<NoAuth> {
             "password": secret
         });
 
-        let res = HttpClient::post(self, &url, auth_payload.to_string()).await?.json::<AuthSuccessResponse>().await?;
-        
+        let res = HttpClient::post(self, &url, auth_payload.to_string())
+            .await?
+            .json::<AuthSuccessResponse>()
+            .await?;
+
         Ok(Client {
             base_url: self.base_url.clone(),
             state: Auth,

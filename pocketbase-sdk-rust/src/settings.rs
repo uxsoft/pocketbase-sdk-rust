@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
+use crate::httpc::HttpClient;
+use anyhow::Result;
+use serde::Deserialize;
 use serde::Serialize;
-use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::json;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -145,11 +144,15 @@ pub struct GetAllRequestBuilder<'a> {
 }
 
 impl<'a> GetAllRequestBuilder<'a> {
-    pub fn call(&self) -> Result<SettingsResponse, serde_json::Error> {
+    pub async fn call(&self) -> Result<SettingsResponse> {
         let url = format!("{}/api/settings", self.client.base_url);
 
-        Httpc::get(self.client, &url, None)
-            .and_then(|result| result.into_json::<SettingsResponse>()?)
+        let res = HttpClient::get(self.client, &url, None)
+            .await?
+            .json::<SettingsResponse>()
+            .await?;
+
+        Ok(res)
     }
 }
 
@@ -167,7 +170,7 @@ pub struct TestS3RequestBuilder<'a> {
 }
 
 impl<'a> TestS3RequestBuilder<'a> {
-    pub fn call(&self) -> bool {
+    pub async fn call(&self) -> bool {
         let url = format!("{}/api/settings/test/s3", self.client.base_url);
 
         let body = json!({
@@ -175,7 +178,7 @@ impl<'a> TestS3RequestBuilder<'a> {
         })
         .to_string();
 
-        let response = Httpc::post(self.client, &url, body);
+        let response = HttpClient::post(self.client, &url, body).await;
 
         response.is_ok()
     }
@@ -204,7 +207,7 @@ pub struct TestEmailRequestBuilder<'a> {
 }
 
 impl<'a> TestEmailRequestBuilder<'a> {
-    pub fn call(&self) -> bool {
+    pub async fn call(&self) -> bool {
         let url = format!("{}/api/settings/test/email", self.client.base_url);
 
         let body = json!({
@@ -213,7 +216,7 @@ impl<'a> TestEmailRequestBuilder<'a> {
         })
         .to_string();
 
-        let response = Httpc::post(self.client, &url, body);
+        let response = HttpClient::post(self.client, &url, body).await;
 
         response.is_ok()
     }
@@ -237,7 +240,7 @@ pub struct GenerateAppleClientSecretRequestBuilder<'a> {
 }
 
 impl<'a> GenerateAppleClientSecretRequestBuilder<'a> {
-    pub fn call(&self) -> bool {
+    pub async fn call(&self) -> bool {
         let url = format!(
             "{}/api/settings/apple/generate-client-secret",
             self.client.base_url
@@ -252,7 +255,7 @@ impl<'a> GenerateAppleClientSecretRequestBuilder<'a> {
         })
         .to_string();
 
-        let response = Httpc::post(self.client, &url, body);
+        let response = HttpClient::post(self.client, &url, body).await;
 
         response.is_ok()
     }

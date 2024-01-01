@@ -1,8 +1,8 @@
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
+use crate::httpc::HttpClient;
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -88,7 +88,7 @@ pub struct CollectionListRequestBuilder<'a> {
 }
 
 impl<'a> CollectionListRequestBuilder<'a> {
-    pub fn call(&self) -> Result<CollectionList> {
+    pub async fn call(&self) -> Result<CollectionList> {
         let url = format!("{}/api/collections", self.client.base_url);
         let mut build_opts: Vec<(&str, &str)> = Vec::new();
 
@@ -103,13 +103,12 @@ impl<'a> CollectionListRequestBuilder<'a> {
         build_opts.push(("per_page", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<CollectionList>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, Some(build_opts))
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
     }
 
     pub fn filter(&self, filter_opts: String) -> Self {
@@ -169,14 +168,13 @@ impl<'a> CollectionsManager<'a> {
 }
 
 impl<'a> CollectionViewRequestBuilder<'a> {
-    pub fn call(&self) -> Result<Collection> {
+    pub async fn call(&self) -> Result<Collection> {
         let url = format!("{}/api/collections/{}", self.client.base_url, self.name);
-        match Httpc::get(self.client, &url, None) {
-            Ok(result) => {
-                let response = result.into_json::<Collection>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, None)
+            .await?
+            .json()
+            .await?;
+
+        Ok(res)
     }
 }

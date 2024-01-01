@@ -1,53 +1,70 @@
-use reqwest::{Request, Response};
+use reqwest::{Request, RequestBuilder, Response};
 
 use crate::client::Client;
 use anyhow::Result;
 
-pub struct Httpc;
+trait PocketbaseAuthExt {
+    fn attach_auth_info<T>(self, client: &Client<T>) -> RequestBuilder;
+}
 
-impl Httpc {
-    fn attach_auth_info<T>(partial_request: Request, client: &Client<T>) -> Result<Request> {
+impl PocketbaseAuthExt for RequestBuilder {
+    fn attach_auth_info<T>(self, client: &Client<T>) -> RequestBuilder {
         match client.auth_token.as_ref() {
-            Some(token) => Ok(partial_request.set("Authorization", token)),
-            None => Ok(partial_request),
+            Some(token) => self.header("Authorization", token),
+            None => self,
         }
     }
+}
 
+pub struct HttpClient;
+
+impl HttpClient {
     pub async fn get<T>(
         client: &Client<T>,
         url: &str,
         query_params: Option<Vec<(&str, &str)>>,
-    ) -> Result<Response, reqwest::Error> {
+    ) -> Result<Response> {
         let res = reqwest::Client::new()
             .get(url)
-            .header(
-                "Authorization",
-                client.auth_token.as_ref().unwrap_or(&"".into()),
-            )
+            .attach_auth_info(client)
             .query(&query_params)
             .send()
-            .await;
+            .await?;
 
-        res
+        Ok(res)
     }
 
-    pub fn post<T>(client: &Client<T>, url: &str, body_content: String) -> Result<Response> {
-        Ok(ureq::post(url))
-            .map(|request| request.set("Content-Type", "application/json"))
-            .and_then(|request| Self::attach_auth_info(request, client))
-            .and_then(|request| Ok(request.send_string(body_content.as_str())?))
+    pub async fn post<T>(client: &Client<T>, url: &str, body_content: String) -> Result<Response> {
+        let res = reqwest::Client::new()
+            .post(url)
+            .attach_auth_info(client)
+            .header("Content-Type", "application/json")
+            .body(body_content)
+            .send()
+            .await?;
+
+        Ok(res)
     }
 
-    pub fn delete<T>(client: &Client<T>, url: &str) -> Result<Response> {
-        Ok(ureq::delete(url))
-            .and_then(|request| Self::attach_auth_info(request, client))
-            .and_then(|request| Ok(request.call()?))
+    pub async fn delete<T>(client: &Client<T>, url: &str) -> Result<Response> {
+        let res = reqwest::Client::new()
+            .delete(url)
+            .attach_auth_info(client)
+            .send()
+            .await?;
+
+        Ok(res)
     }
 
-    pub fn patch<T>(client: &Client<T>, url: &str, body_content: String) -> Result<Response> {
-        Ok(ureq::patch(url))
-            .map(|request| request.set("Content-Type", "application/json"))
-            .and_then(|request| Self::attach_auth_info(request, client))
-            .and_then(|request| Ok(request.send_string(body_content.as_str())?))
+    pub async fn patch<T>(client: &Client<T>, url: &str, body_content: String) -> Result<Response> {
+        let res = reqwest::Client::new()
+            .patch(url)
+            .attach_auth_info(client)
+            .header("Content-Type", "application/json")
+            .body(body_content)
+            .send()
+            .await?;
+
+        Ok(res)
     }
 }

@@ -1,9 +1,9 @@
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
+use crate::httpc::HttpClient;
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 pub struct LogsManager<'a> {
     pub client: &'a Client<Auth>,
@@ -68,33 +68,32 @@ impl<'a> LogStatisticsRequestBuilder<'a> {
         }
     }
 
-    pub fn call(&self) -> Result<Vec<LogStatDataPoint>> {
+    pub async fn call(&self) -> Result<Vec<LogStatDataPoint>> {
         let url = format!("{}/api/logs/requests/stats", self.client.base_url);
         let mut build_opts = Vec::new();
+
         if let Some(filter_opts) = &self.filter {
             build_opts.push(("filter", filter_opts.to_owned()));
         }
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<Vec<LogStatDataPoint>>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, Some(build_opts))
+            .await?
+            .json::<Vec<LogStatDataPoint>>()
+            .await?;
+
+        Ok(res)
     }
 }
 
 impl<'a> LogViewRequestBuilder<'a> {
-    pub fn call(&self) -> Result<LogListItem> {
+    pub async fn call(&self) -> Result<LogListItem> {
         let url = format!("{}/api/logs/requests/{}", self.client.base_url, self.id);
-        match Httpc::get(self.client, &url, None) {
-            Ok(result) => {
-                let response = result.into_json::<LogListItem>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, None)
+            .await?
+            .json::<LogListItem>()
+            .await?;
+
+        Ok(res)
     }
 }
 
@@ -127,24 +126,27 @@ impl<'a> LogListRequestBuilder<'a> {
         }
     }
 
-    pub fn call(&self) -> Result<LogList> {
+    pub async fn call(&self) -> Result<LogList> {
         let url = format!("{}/api/logs/requests", self.client.base_url);
         let mut build_opts = Vec::new();
 
-        if let Some(sort_opts) = &self.sort { build_opts.push(("sort", sort_opts.to_owned())) }
-        if let Some(filter_opts) = &self.filter { build_opts.push(("filter", filter_opts.to_owned())) }
+        if let Some(sort_opts) = &self.sort {
+            build_opts.push(("sort", sort_opts.to_owned()))
+        }
+        if let Some(filter_opts) = &self.filter {
+            build_opts.push(("filter", filter_opts.to_owned()))
+        }
         let per_page_opts = self.per_page.to_string();
         let page_opts = self.page.to_string();
         build_opts.push(("per_page", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<LogList>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, Some(build_opts))
+            .await?
+            .json()
+            .await?;
+        
+        Ok(res)
     }
 }
 
@@ -167,6 +169,9 @@ impl<'a> LogsManager<'a> {
     }
 
     pub fn statistics(&self) -> LogStatisticsRequestBuilder<'a> {
-        LogStatisticsRequestBuilder { client: self.client, filter: None } 
+        LogStatisticsRequestBuilder {
+            client: self.client,
+            filter: None,
+        }
     }
 }

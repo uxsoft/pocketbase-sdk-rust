@@ -1,6 +1,6 @@
 use crate::client::{Auth, Client};
-use crate::httpc::Httpc;
-use anyhow::{anyhow, Result};
+use crate::httpc::HttpClient;
+use anyhow::Result;
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
 
@@ -30,7 +30,7 @@ pub struct RecordList<T> {
 }
 
 impl<'a> RecordsListRequestBuilder<'a> {
-    pub fn call<T: Default + DeserializeOwned>(&self) -> Result<RecordList<T>> {
+    pub async fn call<T: Default + DeserializeOwned>(&self) -> Result<RecordList<T>> {
         let url = format!(
             "{}/api/collections/{}/records",
             self.client.base_url, self.collection_name
@@ -48,13 +48,12 @@ impl<'a> RecordsListRequestBuilder<'a> {
         build_opts.push(("per_page", per_page_opts.as_str()));
         build_opts.push(("page", page_opts.as_str()));
 
-        match Httpc::get(self.client, &url, Some(build_opts)) {
-            Ok(result) => {
-                let response = result.into_json::<RecordList<T>>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        let res = HttpClient::get(self.client, &url, Some(build_opts))
+            .await?
+            .json::<RecordList<T>>()
+            .await?;
+
+        Ok(res)
     }
 
     pub fn filter(&self, filter_opts: &str) -> Self {
@@ -93,37 +92,30 @@ pub struct RecordViewRequestBuilder<'a> {
 }
 
 impl<'a> RecordViewRequestBuilder<'a> {
-    pub fn call<T: Default + DeserializeOwned>(&self) -> Result<T> {
+    pub async fn call<T: Default + DeserializeOwned>(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
             self.client.base_url, self.collection_name, self.identifier
         );
-        match Httpc::get(self.client, &url, None) {
-            Ok(result) => {
-                let response = result.into_json::<T>()?;
-                Ok(response)
-            }
-            Err(e) => Err(anyhow!("error: {}", e)),
-        }
+
+        let res = HttpClient::get(self.client, &url, None)
+            .await?
+            .json::<T>()
+            .await?;
+
+        Ok(res)
     }
 }
 
 impl<'a> RecordDestroyRequestBuilder<'a> {
-    pub fn call(&self) -> Result<()> {
+    pub async fn call(&self) -> Result<bool> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
             self.client.base_url, self.collection_name, self.identifier
         );
-        match Httpc::delete(self.client, url.as_str()) {
-            Ok(result) => {
-                if result.status() == 204 {
-                    Ok(())
-                } else {
-                    Err(anyhow!("Failed to delete"))
-                }
-            }
-            Err(e) => Err(anyhow!("error: {}", e)),
-        }
+        let res = HttpClient::delete(self.client, url.as_str()).await?;
+
+        Ok(res.status().is_success())
     }
 }
 
@@ -160,19 +152,20 @@ pub struct CreateResponse {
 }
 
 impl<'a, T: Serialize + Clone> RecordCreateRequestBuilder<'a, T> {
-    pub fn call(&self) -> Result<CreateResponse> {
+    pub async fn call(&self) -> Result<CreateResponse> {
         let url = format!(
             "{}/api/collections/{}/records",
             self.client.base_url, self.collection_name
         );
+        
         let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
-        match Httpc::post(self.client, &url, payload) {
-            Ok(result) => {
-                let response = result.into_json::<CreateResponse>()?;
-                Ok(response)
-            }
-            Err(e) => Err(anyhow!("error: {}", e)),
-        }
+
+        let res = HttpClient::post(self.client, &url, payload)
+            .await?
+            .json::<CreateResponse>()
+            .await?;
+
+        Ok(res)
     }
 }
 
@@ -183,20 +176,21 @@ pub struct RecordUpdateRequestBuilder<'a, T: Serialize + Clone> {
     pub id: &'a str,
 }
 
-impl<'a, T: Serialize + Clone> RecordUpdateRequestBuilder<'a, T> {
-    pub fn call(&self) -> Result<T> {
+impl<'a, T: Serialize + Clone + DeserializeOwned> RecordUpdateRequestBuilder<'a, T> {
+    pub async fn call(&self) -> Result<T> {
         let url = format!(
             "{}/api/collections/{}/records/{}",
             self.client.base_url, self.collection_name, self.id
         );
-        let payload = serde_json::to_string(&self.record).map_err(anyhow::Error::from)?;
-        match Httpc::patch(self.client, &url, payload) {
-            Ok(result) => {
-                result.into_json::<CreateResponse>()?;
-                Ok(self.record.clone())
-            }
-            Err(e) => Err(anyhow!("error: {}", e)),
-        }
+
+        let payload = serde_json::to_string(&self.record)?;
+        
+        let res = HttpClient::patch(self.client, &url, payload)
+            .await?
+            .json::<T>()
+            .await?;
+
+        Ok(res)
     }
 }
 

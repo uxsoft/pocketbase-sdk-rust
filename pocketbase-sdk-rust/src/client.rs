@@ -1,6 +1,6 @@
-use crate::{collections::CollectionsManager, httpc::Httpc};
+use crate::{collections::CollectionsManager, httpc::HttpClient};
 use crate::{logs::LogsManager, records::RecordsManager, settings::SettingsManager};
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -28,17 +28,17 @@ pub struct HealthCheckResponse {
     pub message: String,
 }
 
+impl<T> Client<T> {
+    pub async fn health_check(&self) -> Result<HealthCheckResponse> {
+        let url = format!("{}/api/health", self.base_url);
+        let res = HttpClient::get(self, &url, None).await?.json().await?;
+        Ok(res)
+    }
+}
+
 impl Client<Auth> {
     pub fn collections(&self) -> CollectionsManager {
         CollectionsManager { client: self }
-    }
-
-    pub fn health_check(&self) -> Result<HealthCheckResponse> {
-        let url = format!("{}/api/health", self.base_url);
-        match Httpc::get(self, &url, None) {
-            Ok(response) => Ok(response.into_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e)),
-        }
     }
 
     pub fn logs(&self) -> LogsManager {
@@ -48,7 +48,7 @@ impl Client<Auth> {
     pub fn records(&self, record_name: &'static str) -> RecordsManager {
         RecordsManager {
             client: self,
-            name: record_name,
+            name: record_name.into(),
         }
     }
 
@@ -66,15 +66,7 @@ impl Client<NoAuth> {
         }
     }
 
-    pub fn health_check(&self) -> Result<HealthCheckResponse> {
-        let url = format!("{}/api/health", self.base_url);
-        match Httpc::get(self, &url, None) {
-            Ok(response) => Ok(response.into_json::<HealthCheckResponse>()?),
-            Err(e) => Err(anyhow!("{}", e)),
-        }
-    }
-
-    pub fn auth_with_password(
+    pub async fn  auth_with_password(
         &self,
         collection: &str,
         identifier: &str,
@@ -90,19 +82,12 @@ impl Client<NoAuth> {
             "password": secret
         });
 
-        match Httpc::post(self, &url, auth_payload.to_string()) {
-            Ok(response) => {
-                let raw_response = response.into_json::<AuthSuccessResponse>();
-                match raw_response {
-                    Ok(AuthSuccessResponse { token }) => Ok(Client {
-                        base_url: self.base_url.clone(),
-                        state: Auth,
-                        auth_token: Some(token),
-                    }),
-                    Err(e) => Err(anyhow!("{}", e)),
-                }
-            }
-            Err(e) => Err(anyhow!("{}", e)),
-        }
+        let res = HttpClient::post(self, &url, auth_payload.to_string()).await?.json::<AuthSuccessResponse>().await?;
+        
+        Ok(Client {
+            base_url: self.base_url.clone(),
+            state: Auth,
+            auth_token: Some(res.token),
+        })
     }
 }

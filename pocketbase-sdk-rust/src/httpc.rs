@@ -1,4 +1,4 @@
-use ureq::{Request, Response};
+use reqwest::{Request, Response};
 
 use crate::client::Client;
 use anyhow::Result;
@@ -13,21 +13,22 @@ impl Httpc {
         }
     }
 
-    pub fn get<T>(
+    pub async fn get<T>(
         client: &Client<T>,
         url: &str,
         query_params: Option<Vec<(&str, &str)>>,
-    ) -> Result<Response> {
-        Ok(ureq::get(url))
-            .and_then(|request| Self::attach_auth_info(request, client))
-            .map(|request| {
-                if let Some(pairs) = query_params {
-                    request.query_pairs(pairs)
-                } else {
-                    request
-                }
-            })
-            .and_then(|request| Ok(request.call()?))
+    ) -> Result<Response, reqwest::Error> {
+        let res = reqwest::Client::new()
+            .get(url)
+            .header(
+                "Authorization",
+                client.auth_token.as_ref().unwrap_or(&"".into()),
+            )
+            .query(&query_params)
+            .send()
+            .await;
+
+        res
     }
 
     pub fn post<T>(client: &Client<T>, url: &str, body_content: String) -> Result<Response> {

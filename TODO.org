@@ -1,4 +1,0 @@
-* List of things to complete for rewrite launch
-
-** TODO Implement Create APIs for Collections
-** TODO Implement View

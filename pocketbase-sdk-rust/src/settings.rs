@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use crate::client::{Auth, Client};
 use crate::httpc::Httpc;
-use anyhow::{anyhow, Result};
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
 use serde_json::json;
@@ -146,16 +145,11 @@ pub struct GetAllRequestBuilder<'a> {
 }
 
 impl<'a> GetAllRequestBuilder<'a> {
-    pub fn call(&self) -> Result<SettingsResponse> {
+    pub fn call(&self) -> Result<SettingsResponse, serde_json::Error> {
         let url = format!("{}/api/settings", self.client.base_url);
 
-        match Httpc::get(self.client, &url, None) {
-            Ok(result) => {
-                let response = result.into_json::<SettingsResponse>()?;
-                Ok(response)
-            }
-            Err(e) => Err(e),
-        }
+        Httpc::get(self.client, &url, None)
+            .and_then(|result| result.into_json::<SettingsResponse>()?)
     }
 }
 

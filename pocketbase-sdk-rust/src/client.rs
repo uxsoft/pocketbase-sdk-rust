@@ -1,5 +1,5 @@
 use crate::{collections::CollectionsManager, httpc::HttpClient};
-use crate::{logs::LogsManager, records::RecordsManager, settings::SettingsManager, rts::RealtimeManager};
+use crate::{logs::LogsManager, records::RecordsManager, settings::SettingsManager, realtime::RealtimeManager};
 use anyhow::Result;
 use serde::Deserialize;
 use serde_json::json;

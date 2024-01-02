@@ -9,6 +9,8 @@ pub struct Admin<'a> {
     pub base_url: &'a str,
 }
 
+// TODO Merge this with client and 
+
 #[derive(Debug, Clone, Deserialize)]
 struct AuthSuccessResponse {
     token: String,

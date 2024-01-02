@@ -17,8 +17,6 @@ pub mod logs;
 pub mod settings;
 
 /// Realtime Related Operations
-pub mod rts;
+pub mod realtime;
 
 mod httpc;
-
-// mod eventstream;

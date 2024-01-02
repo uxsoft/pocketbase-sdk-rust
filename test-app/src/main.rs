@@ -4,6 +4,7 @@ use std::{hash::Hash, pin::Pin};
 use dioxus::prelude::*;
 use eventsource_stream::Eventsource;
 use futures::stream::StreamExt;
+use pocketbase_sdk::realtime::Record;
 use serde::Deserialize;
 
 fn main() {
@@ -19,6 +20,13 @@ struct Post {
     // updated: String,
     title: String,
 }
+
+impl Record for Post {
+    fn key(&self) -> &str {
+        &self.id
+    }
+}
+
 
 async fn get_posts() -> anyhow::Result<Vec<Post>> {
     let client = pocketbase_sdk::client::Client::new("http://localhost:8090")
@@ -53,7 +61,7 @@ fn App(cx: Scope) -> Element {
             prts.announce_topics(&["posts"]).await.unwrap();
 
             while let Ok((topic, change)) = prts.as_mut().get_next().await {
-                events.with_mut(|col| change.apply(col, |r| &r.id))
+                events.with_mut(|col| change.apply(col))
             }
         }
     });

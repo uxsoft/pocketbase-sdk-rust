@@ -1,12 +1,18 @@
-use std::pin::{pin, Pin};
+mod change;
+mod store;
 
 use crate::client::{Auth, Client};
 use anyhow::Result;
-use eventsource_stream::{Event, EventStream, Eventsource};
+pub use change::*;
+use eventsource_stream::{Event, Eventsource};
 use futures::{Stream, StreamExt};
-use pin_project_lite::pin_project;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex}, any::Any,
+};
+pub use store::*;
 
 #[derive(Debug, Clone)]
 pub struct RealtimeManager<'a> {
@@ -14,59 +20,16 @@ pub struct RealtimeManager<'a> {
 }
 
 pub struct ConnectedRealtimeManager<'a> {
-    pub client: &'a Client<Auth>,
-    pub client_id: String,
-    pub stream: Pin<Box<dyn Stream<Item = Event>>>,
+    client: &'a Client<Auth>,
+    client_id: String,
+    stream: Pin<Box<dyn Stream<Item = Event>>>,
+    stores: Vec<Arc<Mutex<dyn Subscriber>>>,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct WelcomeMessage {
     client_id: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum Action {
-    Update,
-    Create,
-    Delete,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Change {
-    pub record: Box<serde_json::value::RawValue>,
-    pub action: Action,
-}
-
-impl Change {
-    pub fn record<T: DeserializeOwned>(&self) -> Result<T> {
-        let res = serde_json::from_str::<T>(&self.record.as_ref().get())?;
-        Ok(res)
-    }
-
-    pub fn apply<T, F, K>(&self, collection: &mut Vec<T>, get_key: F)
-    where
-        T: DeserializeOwned,
-        F: Fn(&T) -> &K,
-        K: Eq,
-    {
-        let record = self.record::<T>().unwrap();
-        let record_key = get_key(&record);
-
-        match self.action {
-            Action::Update => {
-                if let Some(index) = collection.iter().position(|i| get_key(&i) == record_key) {
-                    collection[index] = record;
-                } else {
-                    collection.push(record);
-                }
-            }
-            Action::Create => collection.push(record),
-            Action::Delete => collection.retain(|i| get_key(&i) != record_key),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,6 +63,7 @@ impl<'a> RealtimeManager<'a> {
             client: self.client,
             client_id: first_message.client_id,
             stream: Box::pin(only_successes),
+            stores: Vec::new(),
         })
     }
 }
@@ -134,5 +98,22 @@ impl<'a> ConnectedRealtimeManager<'a> {
         let change = serde_json::from_str::<Change>(&event.data)?;
 
         Ok((event.event, change))
+    }
+
+    fn notify_stores(&mut self, topic: String, change: Change) {
+        for store in &self.stores {
+            store.lock().unwrap().notify(&topic, &change);
+        }
+    }
+
+    pub fn create_store<T: Record + DeserializeOwned>(
+        &mut self,
+        topic: String,
+    ) -> &Mutex<Store<T>> {
+        let store = Store::<T>::new(topic.clone());
+        let arc = Arc::new(Mutex::new(store));
+        self.stores.push(arc);
+
+        arc.as_ref()
     }
 }

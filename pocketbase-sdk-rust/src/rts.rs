@@ -13,14 +13,14 @@ pub struct RealtimeManager<'a> {
     pub client: &'a Client<Auth>,
 }
 
-pin_project! {
-    pub struct ConnectedRealtimeManager<'a> {
-        pub client: &'a Client<Auth>,
-        pub client_id: String,
-        #[pin]
-        pub stream: Box<dyn Stream<Item = Event>>,
-    }
+// pin_project! {
+pub struct ConnectedRealtimeManager<'a> {
+    pub client: &'a Client<Auth>,
+    pub client_id: String,
+    // #[pin]
+    pub stream: Pin<Box<dyn Stream<Item = Event>>>,
 }
+// }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,7 +29,7 @@ struct FirstMessage {
 }
 
 impl<'a> RealtimeManager<'a> {
-    pub async fn connect<E>(&self) -> Result<ConnectedRealtimeManager<'a>> {
+    pub async fn connect(&self) -> Result<ConnectedRealtimeManager<'a>> {
         let url = format!("{}/api/realtime", self.client.base_url);
         let mut stream = reqwest::Client::new()
             .get(url)
@@ -42,19 +42,19 @@ impl<'a> RealtimeManager<'a> {
         let first_event = stream.next().await.unwrap().unwrap(); // to do prevent panic!
         let first_message: FirstMessage = serde_json::from_str(&first_event.data).unwrap();
 
-        let only_successes: Box<dyn Stream<Item = Event>> =
-            Box::new(stream.filter_map(|i| async { i.ok() }));
+        let only_successes =//: dyn Stream<Item = Event> =
+            stream.filter_map(|i| async { i.ok() });
 
         Ok(ConnectedRealtimeManager {
             client: self.client,
             client_id: first_message.client_id,
-            stream: only_successes,
+            stream: Box::pin(only_successes),
         })
     }
 }
 
 impl<'a> ConnectedRealtimeManager<'a> {
-    async fn announce_topics(&self, topics: &[&str]) -> Result<()> {
+    pub async fn announce_topics(&self, topics: &[&str]) -> Result<()> {
         let url = format!("{}/api/realtime", self.client.base_url);
 
         let body = json!({
@@ -63,14 +63,21 @@ impl<'a> ConnectedRealtimeManager<'a> {
         })
         .to_string();
 
-        let _res = reqwest::Client::new().post(url).body(body).send().await?;
+        let _res = reqwest::Client::new()
+            .post(url)
+            .header("Content-Type", "application/json")
+            .body(body)
+            .send()
+            .await?;
 
         Ok(())
     }
 
-    pub fn get_stream(self: Pin<&mut Self>) {
-        let mut this = self.project();
+    pub async fn get_next(self: Pin<&mut Self>) -> Option<Event> {
+        let mut pinned_stream = unsafe { Pin::new_unchecked(&mut self.get_unchecked_mut().stream) };
 
-        let a = this.stream.as_mut().next();
+        let event = pinned_stream.next().await;
+
+        event
     }
 }

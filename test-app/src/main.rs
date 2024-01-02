@@ -1,4 +1,6 @@
 #![allow(non_snake_case)]
+use std::pin::Pin;
+
 use dioxus::prelude::*;
 use eventsource_stream::Eventsource;
 use futures::stream::StreamExt;
@@ -37,23 +39,21 @@ fn App(cx: Scope) -> Element {
                 .await
                 .unwrap();
 
-            let rts = client.realtime().connect().await.unwrap();
+            let mut rts: pocketbase_sdk::rts::ConnectedRealtimeManager<'_> =
+                client.realtime().connect().await.unwrap();
 
-            let stream = rts.project();
+            let mut prts = unsafe { Pin::new_unchecked(&mut rts) };
 
-            while let Some(event) = stream.next().await {
-                match event {
-                    Ok(event) => events.write().push(event.data),
-                    Err(e) => events.write().push(e.to_string()),
-                }
+            prts.announce_topics(&["posts"]).await.unwrap();
+
+            while let Some(event) = prts.as_mut().get_next().await {
+                events.write().push(event.data);
             }
         }
     });
 
     cx.render(rsx! {
         div {
-            style: "margin: 200px auto; width: 100px",
-
             ul {
                 style: "background-color: blue",
 

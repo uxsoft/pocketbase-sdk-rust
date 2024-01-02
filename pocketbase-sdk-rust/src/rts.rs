@@ -49,15 +49,22 @@ impl Change {
     pub fn apply<T, F, K>(&self, collection: &mut Vec<T>, get_key: F)
     where
         T: DeserializeOwned,
-        F: FnMut(&T) -> K,
+        F: Fn(&T) -> &K,
         K: Eq,
     {
         let record = self.record::<T>().unwrap();
+        let record_key = get_key(&record);
 
         match self.action {
-            Action::Update => collection.,
+            Action::Update => {
+                if let Some(index) = collection.iter().position(|i| get_key(&i) == record_key) {
+                    collection[index] = record;
+                } else {
+                    collection.push(record);
+                }
+            }
             Action::Create => collection.push(record),
-            Action::Delete => collection.retain(|i| get_key(&i) != get_key(&record)),
+            Action::Delete => collection.retain(|i| get_key(&i) != record_key),
         }
     }
 }

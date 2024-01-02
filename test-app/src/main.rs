@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-use std::pin::Pin;
+use std::{hash::Hash, pin::Pin};
 
 use dioxus::prelude::*;
 use eventsource_stream::Eventsource;
@@ -52,12 +52,8 @@ fn App(cx: Scope) -> Element {
 
             prts.announce_topics(&["posts"]).await.unwrap();
 
-            while let Ok((topic, event)) = prts.as_mut().get_next().await {
-                let rec = event.record::<Post>().unwrap();
-
-                events
-                    .write()
-                    .push(rec);
+            while let Ok((topic, change)) = prts.as_mut().get_next().await {
+                events.with_mut(|col| change.apply(col, |r| &r.id))
             }
         }
     });

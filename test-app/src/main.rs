@@ -12,7 +12,11 @@ fn main() {
 
 #[derive(Deserialize)]
 struct Post {
+    // collection_id: String,
+    // collection_name: String,
+    // created: String,
     id: String,
+    // updated: String,
     title: String,
 }
 
@@ -29,7 +33,7 @@ async fn get_posts() -> anyhow::Result<Vec<Post>> {
 fn App(cx: Scope) -> Element {
     let posts = use_future(cx, (), |_| get_posts());
 
-    let mut events = use_ref(cx, Vec::<String>::new);
+    let mut events = use_ref(cx, Vec::<Post>::new);
     let sync_task: &Coroutine<()> = use_coroutine(cx, |rx: UnboundedReceiver<_>| {
         let events = events.to_owned();
 
@@ -39,17 +43,21 @@ fn App(cx: Scope) -> Element {
                 .await
                 .unwrap();
 
+            let initial = client.records("posts").list().call::<Post>().await.unwrap();
+
+            events.write().extend(initial.items);
+
             let mut rts = client.realtime().connect().await.unwrap();
             let mut prts = Pin::new(&mut rts);
 
             prts.announce_topics(&["posts"]).await.unwrap();
 
             while let Ok((topic, event)) = prts.as_mut().get_next().await {
-                let rec = event.record::<pocketbase_sdk::rts::RecordBase>().unwrap();
+                let rec = event.record::<Post>().unwrap();
 
                 events
                     .write()
-                    .push(format!("[{:?} => {:?}] {:?}", topic, event.action, rec));
+                    .push(rec);
             }
         }
     });
@@ -84,11 +92,9 @@ fn App(cx: Scope) -> Element {
             }
 
             ul {
-                for event in &*events.read() {
-                    // Notice the body of this for loop is rsx code, not an expression
-                    li {
-                        "{event}"
-                    }
+                style: "background-color: green",
+                for p in &*events.read() {
+                    li { key: "{p.id}", "{p.title}" }
                 }
             }
             br {}

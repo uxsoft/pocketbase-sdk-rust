@@ -45,6 +45,21 @@ impl Change {
         let res = serde_json::from_str::<T>(&self.record.as_ref().get())?;
         Ok(res)
     }
+
+    pub fn apply<T, F, K>(&self, collection: &mut Vec<T>, get_key: F)
+    where
+        T: DeserializeOwned,
+        F: FnMut(&T) -> K,
+        K: Eq,
+    {
+        let record = self.record::<T>().unwrap();
+
+        match self.action {
+            Action::Update => collection.,
+            Action::Create => collection.push(record),
+            Action::Delete => collection.retain(|i| get_key(&i) != get_key(&record)),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

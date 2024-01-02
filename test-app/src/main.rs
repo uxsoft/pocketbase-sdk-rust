@@ -39,15 +39,17 @@ fn App(cx: Scope) -> Element {
                 .await
                 .unwrap();
 
-            let mut rts: pocketbase_sdk::rts::ConnectedRealtimeManager<'_> =
-                client.realtime().connect().await.unwrap();
-
-            let mut prts = unsafe { Pin::new_unchecked(&mut rts) };
+            let mut rts = client.realtime().connect().await.unwrap();
+            let mut prts = Pin::new(&mut rts);
 
             prts.announce_topics(&["posts"]).await.unwrap();
 
-            while let Some(event) = prts.as_mut().get_next().await {
-                events.write().push(event.data);
+            while let Ok((topic, event)) = prts.as_mut().get_next().await {
+                let rec = event.record::<pocketbase_sdk::rts::RecordBase>().unwrap();
+
+                events
+                    .write()
+                    .push(format!("[{:?} => {:?}] {:?}", topic, event.action, rec));
             }
         }
     });

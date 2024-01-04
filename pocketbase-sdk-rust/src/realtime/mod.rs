@@ -8,10 +8,7 @@ use eventsource_stream::{Event, Eventsource};
 use futures::{Stream, StreamExt};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::json;
-use std::{
-    pin::Pin,
-    sync::{Arc, Mutex}, any::Any,
-};
+use std::{pin::Pin, any::Any};
 pub use store::*;
 
 #[derive(Debug, Clone)]
@@ -23,7 +20,7 @@ pub struct ConnectedRealtimeManager<'a> {
     client: &'a Client<Auth>,
     client_id: String,
     stream: Pin<Box<dyn Stream<Item = Event>>>,
-    stores: Vec<Arc<Mutex<dyn Subscriber>>>,
+    stores: Vec<Box<dyn Subscriber>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -102,18 +99,18 @@ impl<'a> ConnectedRealtimeManager<'a> {
 
     fn notify_stores(&mut self, topic: String, change: Change) {
         for store in &self.stores {
-            store.lock().unwrap().notify(&topic, &change);
+            store.notify(&topic, &change);
         }
     }
 
-    pub fn create_store<T: Record + DeserializeOwned>(
-        &mut self,
-        topic: String,
-    ) -> &Mutex<Store<T>> {
+    pub fn create_store<T: Record + DeserializeOwned>(&mut self, topic: String) -> &Store<T> {
         let store = Store::<T>::new(topic.clone());
-        let arc = Arc::new(Mutex::new(store));
-        self.stores.push(arc);
+        let b = Box::new(store);
+        self.stores.push(b);
 
-        arc.as_ref()
+        let stored = self.stores.last().unwrap().as_ref();
+        let any = stored as &dyn Any;
+        let store_ref = any.downcast_ref().unwrap();
+        store_ref
     }
 }
